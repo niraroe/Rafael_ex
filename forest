@@ -1,0 +1,23 @@
+- name: Promote the server to a Domain Controller
+  win_shell: |
+    Import-Module ADDSDeployment
+    Install-ADDSForest `
+      -DomainName "{{ domain_name }}" `
+      -ForestMode: "Win2012R2" `
+      -DomainMode: "Win2012R2" `
+      -InstallDns:$true `
+      -SafeModeAdministratorPassword (ConvertTo-SecureString -AsPlainText "{{ safe_mode_admin_password }}" -Force) `
+      -Force:$true
+  register: promote_dc
+  ignore_errors: yes
+
+- name: Check if domain controller promotion succeeded
+  debug:
+    notify: Reboot the server after Domain Controller promotion
+    msg: "Domain controller promotion succeeded!"
+  when: promote_dc.rc == 0  # Checks for return code 0 (success)
+
+- name: Handle domain controller promotion failure
+  debug:
+    msg: "Domain controller promotion failed!"
+  when: promote_dc.rc != 0  # If return code is not 0, consider it failed

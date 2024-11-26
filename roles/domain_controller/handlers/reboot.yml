@@ -1,0 +1,4 @@
+- name: Reboot the server after Domain Controller promotion
+  win_reboot:
+    msg: "Rebooting the system to complete Domain Controller promotion"
+    reboot_timeout: 600

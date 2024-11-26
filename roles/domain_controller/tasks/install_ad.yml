@@ -1,0 +1,4 @@
+- name: Ensure Active Directory Domain Services is installed
+  win_feature:
+    name: AD-Domain-Services
+    state: present

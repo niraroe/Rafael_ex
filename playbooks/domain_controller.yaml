@@ -1,0 +1,8 @@
+- name: Setup Domain Controller and configure domain rafael.local
+  hosts: windows_servers
+  gather_facts: no
+
+  tasks:
+    - name: Include role to set up Domain Controller
+      include_role:
+        name: domain_controller

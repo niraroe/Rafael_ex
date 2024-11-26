@@ -1,0 +1,17 @@
+- name: Promote the server to a Domain Controller
+  win_shell: |
+    Import-Module ADDSDeployment
+    Install-ADDSDomain -NewDomainName "refael.local" -SafeModeAdministratorPassword (ConvertTo-SecureString -AsPlainText "Password1" -Force) -Force
+  register: promote_dc
+  ignore_errors: yes
+
+- name: Check if domain controller promotion succeeded
+  debug:
+    notify: Reboot the server after Domain Controller promotion
+    msg: "Domain controller promotion succeeded!"
+  when: promote_dc.rc == 0  # Checks for return code 0 (success)
+
+- name: Handle domain controller promotion failure
+  debug:
+    msg: "Domain controller promotion failed!"
+  when: promote_dc.rc != 0  # If return code is not 0, consider it failed

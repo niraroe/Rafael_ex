@@ -1,0 +1,6 @@
+- name: Install Active Directory Domain Services
+  import_tasks: install_ad.yml
+
+- name: Promote server to Domain Controller
+  import_tasks: promote_dc.yml
+

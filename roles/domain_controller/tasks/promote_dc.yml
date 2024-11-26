@@ -13,8 +13,8 @@
 
 - name: Check if domain controller promotion succeeded
   debug:
-    notify: Reboot the server after Domain Controller promotion
     msg: "Domain controller promotion succeeded!"
+  notify: Reboot the server after Domain Controller promotion
   when: promote_dc.rc == 0  # Checks for return code 0 (success)
 
 - name: Handle domain controller promotion failure

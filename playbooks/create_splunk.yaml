@@ -1,0 +1,85 @@
+- name: Deploy Standalone Splunk in Docker
+  hosts: localhost
+  become: true
+  vars:
+    splunk_image: "splunk/splunk:latest"
+    splunk_container_name: "splunk-standalone"
+    splunk_admin_password: "Password1"
+    splunk_http_port: 8000
+    splunk_hec_port: 8088
+    splunk_volume: "/opt/splunk"
+
+  tasks:
+    - name: Install necessary dependencies
+      package:
+        name:
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+        state: present
+      become: true
+
+    - name: Add Docker repository on CentOS
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+      become: true
+
+    - name: Install Docker on CentOS
+      package:
+        name: docker-ce
+        state: present
+      become: true
+
+    - name: Ensure Docker service is started and enabled
+      service:
+        name: docker
+        state: started
+        enabled: true
+      become: true
+
+    - name: Pull the latest Splunk Certified Docker image from Docker Hub
+      docker_image:
+        name: "{{ splunk_image }}"
+        source: pull
+
+    - name: Create directories for Splunk volumes
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      with_items:
+        - /opt/splunk/var
+        - /opt/splunk/etc
+
+    - name: Create and run the Splunk container
+      docker_container:
+        name: "{{ splunk_container_name }}"
+        image: "{{ splunk_image }}"
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "{{ splunk_http_port }}:8000"
+          - "{{ splunk_hec_port }}:8088"
+        volumes:
+          - "{{ splunk_volume }}/var:/opt/splunk/var"
+          - "{{ splunk_volume }}/etc:/opt/splunk/etc"
+        env:
+          SPLUNK_START_ARGS: "--accept-license"
+          SPLUNK_PASSWORD: "{{ splunk_admin_password }}"
+        detach: yes
+
+    - name: Wait for Splunk to become available
+      wait_for:
+        host: localhost
+        port: "{{ splunk_http_port }}" 
+        timeout: 300
+        delay: 10
+        msg: "Splunk did not become available in time"
+
+    - name: Output Splunk access URL
+      debug:
+        msg: "Splunk is now accessible at http://localhost:{{ splunk_http_port }}"
+

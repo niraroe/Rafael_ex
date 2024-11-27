@@ -1,0 +1,33 @@
+- name: Install and Configure Microsoft CA
+  hosts: windows_servers
+  gather_facts: yes
+  tasks:
+
+    - name: Install Certificate Authority role
+      win_feature:
+        name: ADCS-Cert-Authority
+        state: present
+      register: ca_role
+
+    - name: Check if CA role was installed
+      debug:
+        msg: "CA Role installation succeeded"
+      when: ca_role.changed == true
+
+    - name: Install Certificate Authority Web Enrollment
+      win_feature:
+        name: ADCS-Web-Enrollment
+        state: present
+      when: ca_role.changed == true
+
+    - name: Configure Certification Authority
+      win_shell: |
+        Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName "MyCA" `
+          -KeyLength 2048 -HashAlgorithmName SHA256 -ValidityPeriod Years -ValidityPeriodUnits 5 `
+          -Credential (New-Object System.Management.Automation.PSCredential("Administrator", (ConvertTo-SecureString "Password1" -AsPlainText -Force))) -Force
+      when: ca_role.changed == true
+
+    - name: Start the Certificate Authority service
+      win_service:
+        name: certsvc
+        state: started

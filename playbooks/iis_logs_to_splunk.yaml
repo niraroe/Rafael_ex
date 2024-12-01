@@ -1,0 +1,70 @@
+- name: Configure IIS Website to Send Logs to Splunk
+  hosts: windows_servers
+  gather_facts: no
+  tasks:
+    # Step 1: Ensure IIS is installed
+    - name: Ensure IIS is installed
+      win_feature:
+        name: Web-Server
+        state: present
+
+    - name: Ensure the directory exists
+      win_file:
+        path: C:\Temp
+        state: directory
+          
+    # Step 2: Ensure IIS logging is enabled (this is usually enabled by default)
+    - name: Enable IIS logging for the website
+      community.windows.win_iis_website:
+        name: "NirNewWebsite"
+        state: "started"
+        log_file_directory: "C:\\inetpub\\logs\\LogFiles"
+        log_file_format: W3C  # Most common format used for IIS logs
+        log_period: Hourly     # Log rollover period (options: Hourly, Daily, Weekly, etc.)
+
+    # Step 3: Install the Splunk Universal Forwarder
+    - name: Download Splunk Universal Forwarder
+      win_get_url:
+        url: https://download.splunk.com/products/universalforwarder/releases/9.3.2/windows/splunkforwarder-9.3.2-d8bb32809498-x64-release.msi
+        dest: C:\Temp\splunkforwarder.msi
+
+    - name: Install Splunk Universal Forwarder
+      win_command:
+        cmd: msiexec /i C:\Temp\splunkforwarder.msi /quiet /norestart
+        creates: "C:\\Program Files\\SplunkUniversalForwarder\\bin\\splunk.exe"
+      args:
+        chdir: C:\Temp
+    # Step 4: Configure Splunk Universal Forwarder to monitor IIS logs
+    - name: Configure Splunk Universal Forwarder to monitor IIS logs
+      win_lineinfile:
+        path: "C:\\Program Files\\SplunkUniversalForwarder\\etc\\system\\local\\inputs.conf"
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - "[monitor://C:\\inetpub\\logs\\LogFiles\\W3SVC*\\*.log]"
+        - "disabled = false"
+        - "index = main"
+        - "sourcetype = iis"
+        - "_TCP_ROUTING = *"
+
+    # Step 5: Configure Splunk Universal Forwarder to send logs to Splunk instance
+    - name: Configure outputs.conf to send logs to Splunk instance
+      win_lineinfile:
+        path: "C:\\Program Files\\SplunkUniversalForwarder\\etc\\system\\local\\outputs.conf"
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - "[tcpout]"
+        - "defaultGroup = default-autolb-group"
+        - " "
+        - "[tcpout:default-autolab-group]"
+        - "server = 10.0.2.15:9997"
+        - " "
+        - "[tcpout-server://10.0.2.15:9997]"
+
+
+    # Step 6: Restart Splunk Universal Forwarder service
+    - name: Restart Splunk Universal Forwarder service
+      win_service:
+        name: SplunkForwarder
+        state: restarted
